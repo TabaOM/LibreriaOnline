@@ -1,26 +1,54 @@
 <?php
 session_start();
-if ($_SERVER['REQUEST_METHOD'] == 'POST') {
-    $book_id = $_POST['book_id'];
-    $cantidad = $_POST['cantidad'];
-    $user_id = $_SESSION['user_id'];
+include 'config.php';
 
-    require 'config.php';
-    $stmt = $conn->prepare("SELECT precio FROM LIBROS WHERE ID = ?");
-    $stmt->bind_param("i", $book_id);
-    $stmt->execute();
-    $stmt->bind_result($precio);
-    $stmt->fetch();
-    $stmt->close();
-
-    $monto_total = $precio * $cantidad;
-
-    $stmt = $conn->prepare("INSERT INTO CARRITO (ID_usuario, ID_libro, cantidad, monto_total) VALUES (?, ?, ?, ?)");
-    $stmt->bind_param("iiid", $user_id, $book_id, $cantidad, $monto_total);
-    $stmt->execute();
-    $stmt->close();
-    $conn->close();
-
-    header("Location: ../carrito.html");
+// Inicializar el carrito si no existe
+if (!isset($_SESSION['carrito'])) {
+    $_SESSION['carrito'] = [];
 }
+
+// Manejar acciones del carrito
+if ($_SERVER["REQUEST_METHOD"] == "POST") {
+    $accion = $_POST['accion'];
+    $id_libro = intval($_POST['id_libro']);
+
+    if ($accion == "agregar") {
+        $cantidad = intval($_POST['cantidad']);
+
+        // Verificar si el libro existe en la BD
+        $query = "SELECT * FROM libros WHERE id = '$id_libro'";
+        $resultado = $conn->query($query);
+
+        if ($resultado->num_rows > 0) {
+            $libro = $resultado->fetch_assoc();
+
+            // Agregar al carrito
+            if (!isset($_SESSION['carrito'][$id_libro])) {
+                $_SESSION['carrito'][$id_libro] = [
+                    "titulo" => $libro['titulo'],
+                    "precio" => $libro['precio'],
+                    "cantidad" => $cantidad
+                ];
+            } else {
+                $_SESSION['carrito'][$id_libro]['cantidad'] += $cantidad;
+            }
+            echo json_encode(["mensaje" => "Libro agregado al carrito"]);
+        } else {
+            echo json_encode(["error" => "Error: El libro no existe"]);
+        }
+    } elseif ($accion == "eliminar") {
+        unset($_SESSION['carrito'][$id_libro]);
+        echo json_encode(["mensaje" => "Libro eliminado del carrito"]);
+    } elseif ($accion == "vaciar") {
+        $_SESSION['carrito'] = [];
+        echo json_encode(["mensaje" => "Carrito vaciado"]);
+    }
+}
+
+// Mostrar carrito en formato JSON
+if ($_SERVER["REQUEST_METHOD"] == "GET") {
+    echo json_encode($_SESSION['carrito']);
+}
+
+$conn->close();
 ?>

@@ -1,17 +1,31 @@
 <?php
-if ($_SERVER['REQUEST_METHOD'] == 'POST') {
-    $nombre = $_POST['nombre'];
-    $email = $_POST['email'];
-    $password = password_hash($_POST['password'], PASSWORD_DEFAULT);
-    $direccion = $_POST['direccion'];
-    $telefono = $_POST['telefono'];
+include 'config.php';
 
-    require 'config.php';
-    $stmt = $conn->prepare("INSERT INTO USUARIOS (nombre, email, contraseña, direccion, telefono) VALUES (?, ?, ?, ?, ?)");
-    $stmt->bind_param("sssss", $nombre, $email, $password, $direccion, $telefono);
-    $stmt->execute();
-    $stmt->close();
-    $conn->close();
-    header("Location: ../login.html");
+if ($_SERVER["REQUEST_METHOD"] == "POST") {
+    $nombre = $conn->real_escape_string($_POST['nombre']);
+    $email = $conn->real_escape_string($_POST['email']);
+    $password = password_hash($_POST['password'], PASSWORD_BCRYPT);
+    $direccion = $conn->real_escape_string($_POST['direccion']);
+    $telefono = $conn->real_escape_string($_POST['telefono']);
+
+    // Verificar si el usuario ya existe
+    $query = "SELECT id FROM usuarios WHERE email='$email'";
+    $resultado = $conn->query($query);
+
+    if ($resultado->num_rows > 0) {
+        echo "Error: El correo ya está registrado.";
+    } else {
+        // Insertar usuario
+$sql = "INSERT INTO usuarios (nombre, email, contraseña, direccion, telefono)
+        VALUES ('$nombre', '$email', '$password', '$direccion', '$telefono')";
+
+        if ($conn->query($sql) === TRUE) {
+            echo "Registro exitoso. <a href='../login.html'>Inicia sesión aquí</a>";
+        } else {
+            echo "Error al registrar usuario: " . $conn->error;
+        }
+    }
 }
+
+$conn->close();
 ?>
